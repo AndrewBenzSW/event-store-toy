@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace EventStoreToy.CounterService
+namespace CounterService
 {
     /// <summary>
     /// This would be the public API of the Counter Service

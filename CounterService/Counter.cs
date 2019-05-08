@@ -1,8 +1,9 @@
-﻿using System;
+﻿using CounterService.Exceptions;
+using System;
 
-namespace EventStoreToy.CounterService
+namespace CounterService
 {
-    public class Counter
+    internal class Counter
     {
         private Guid counterId;
         private readonly long version;
@@ -27,7 +28,7 @@ namespace EventStoreToy.CounterService
         {
             if (Count + 1 > 100)
             {
-                throw new InvalidOperationException("Cannot count higher than 100");
+                throw new CounterAtMaxException(100);
             }
 
             return new CounterEvent(counterId, CounterEvents.CounterIncremented, version + 1, "");
@@ -37,7 +38,7 @@ namespace EventStoreToy.CounterService
         {
             if (Count - 1 < 0)
             {
-                throw new InvalidOperationException("Cannot count less than 0");
+                throw new CounterAtMinException(0);
             }
 
             return new CounterEvent(counterId, CounterEvents.CounterDecremented, version + 1, "");

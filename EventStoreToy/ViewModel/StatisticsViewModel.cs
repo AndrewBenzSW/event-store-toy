@@ -1,4 +1,4 @@
-﻿using EventStoreToy.CounterService;
+﻿using CounterService;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.CommandWpf;
 using GalaSoft.MvvmLight.Threading;

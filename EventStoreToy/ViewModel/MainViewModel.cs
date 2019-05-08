@@ -1,4 +1,4 @@
-using EventStoreToy.CounterService;
+using CounterService;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.CommandWpf;
 using GalaSoft.MvvmLight.Threading;
@@ -51,6 +51,7 @@ namespace EventStoreToy.ViewModel
                 counterApi = new CounterApi();
 
                 AddCounter = new RelayCommand(OnAddCounter);
+                Update = new RelayCommand(() => UpdateView());
                 Counters = new ObservableCollection<CounterViewModel>();
 
                 CounterStore.EventAdded += (s, e) => UpdateView();
@@ -59,6 +60,17 @@ namespace EventStoreToy.ViewModel
 
             Statistics = new StatisticsViewModel();
         }
+
+        public ICommand AddCounter { get; }
+        public ICommand Update { get; }
+
+        public ObservableCollection<CounterViewModel> Counters
+        {
+            get => counters;
+            private set => Set(ref counters, value);
+        }
+
+        public StatisticsViewModel Statistics { get; private set; }
 
         private async Task UpdateView()
         {
@@ -111,17 +123,7 @@ namespace EventStoreToy.ViewModel
             }
         }
 
-        public ICommand AddCounter { get; }
-
         private Timer timer;
-
-        public ObservableCollection<CounterViewModel> Counters
-        {
-            get => counters;
-            private set => Set(ref counters, value);
-        }
-
-        public StatisticsViewModel Statistics { get; private set; }
 
         private async void OnAddCounter()
         {

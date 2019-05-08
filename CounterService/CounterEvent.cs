@@ -1,10 +1,10 @@
 ﻿using System;
 
-namespace EventStoreToy.CounterService
+namespace CounterService
 {
     public class CounterEvent
     {
-        public CounterEvent(Guid counterId, string type, long version, string payload)
+        internal CounterEvent(Guid counterId, string type, long version, string payload)
         {
             CounterId = counterId;
             Version = version;

@@ -1,4 +1,4 @@
-﻿namespace EventStoreToy.CounterService
+﻿namespace CounterService
 {
     public static class CounterEvents
     {

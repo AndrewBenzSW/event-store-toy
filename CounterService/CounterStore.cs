@@ -1,9 +1,10 @@
-﻿using System;
+﻿using CounterService.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 
-namespace EventStoreToy.CounterService
+namespace CounterService
 {
     public static class CounterStore
     {
@@ -12,7 +13,7 @@ namespace EventStoreToy.CounterService
         /// <summary>
         /// Get a counter entity by id
         /// </summary>
-        public static async Task<Counter> GetById(Guid counterId)
+        internal static async Task<Counter> GetById(Guid counterId)
         {
             using (var conn = new SqlConnection("Server=localhost;Database=EventStore;Trusted_Connection=True;"))
             {
@@ -47,7 +48,7 @@ namespace EventStoreToy.CounterService
         /// <summary>
         /// Store the given event
         /// </summary>
-        public static async Task StoreEvent(CounterEvent counterEvent)
+        internal static async Task StoreEvent(CounterEvent counterEvent)
         {
             using (var conn = new SqlConnection("Server=localhost;Database=EventStore;Trusted_Connection=True;"))
             {
@@ -61,9 +62,16 @@ namespace EventStoreToy.CounterService
 
                     await conn.OpenAsync().ConfigureAwait(false);
 
-                    await comm.ExecuteNonQueryAsync().ConfigureAwait(false);
+                    try
+                    {
+                        await comm.ExecuteNonQueryAsync().ConfigureAwait(false);
 
-                    EventAdded?.Invoke(new object(), EventArgs.Empty);
+                        EventAdded?.Invoke(new object(), EventArgs.Empty);
+                    }
+                    catch (SqlException ex) when (ex.Number == 2627)
+                    {
+                        throw new CounterOutOfDateException();
+                    }
                 }
             }
         }
