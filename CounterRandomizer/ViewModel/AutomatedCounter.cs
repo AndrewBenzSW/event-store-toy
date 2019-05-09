@@ -18,13 +18,15 @@ namespace CounterRandomizer.ViewModel
         private string message;
         private Timer timer;
         private int interval = 500;
+        private string name = string.Empty;
         private static Random random = new Random();
 
         private Func<Task> updateFunc;
 
-        public AutomatedCounter(Guid id)
+        public AutomatedCounter(Guid id, string name)
         {
             Id = id;
+            Name = name;
 
             if (!IsInDesignMode)
             {
@@ -38,6 +40,12 @@ namespace CounterRandomizer.ViewModel
         }
 
         public Guid Id { get; }
+
+        public string Name
+        {
+            get => name;
+            set => Set(ref name, value);
+        }
 
         public long EventsSent
         {

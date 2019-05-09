@@ -1,14 +1,17 @@
 using CounterService;
+using CounterService.Extensions;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.CommandWpf;
 using GalaSoft.MvvmLight.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using static CounterEvent;
 
 namespace EventStoreToy.ViewModel
 {
@@ -28,6 +31,7 @@ namespace EventStoreToy.ViewModel
     {
         private readonly CounterApi counterApi;
         private ObservableCollection<CounterViewModel> counters;
+        private string newCounterName;
         private long lastSequenceSeen = -1;
 
         /// <summary>
@@ -41,9 +45,9 @@ namespace EventStoreToy.ViewModel
                 Counters = new ObservableCollection<CounterViewModel>(
                     new List<CounterViewModel>
                 {
-                    new CounterViewModel(Guid.NewGuid(), 6),
-                    new CounterViewModel(Guid.NewGuid(), 9),
-                    new CounterViewModel(Guid.NewGuid(), 0),
+                    new CounterViewModel(Guid.NewGuid(), 6, "Foo"),
+                    new CounterViewModel(Guid.NewGuid(), 9, null) { NameChanging = true },
+                    new CounterViewModel(Guid.NewGuid(), 0, "Bar"),
                 });
             }
             else
@@ -70,11 +74,19 @@ namespace EventStoreToy.ViewModel
             private set => Set(ref counters, value);
         }
 
+        public string NewCounterName
+        {
+            get => newCounterName;
+            set => Set(ref newCounterName, value);
+        }
+
         public StatisticsViewModel Statistics { get; private set; }
 
         private async Task UpdateView()
         {
             var events = await CounterStore.AllEventsAfter(lastSequenceSeen).ConfigureAwait(true);
+
+            /// var counterState = new Dictionary<Guid, (string, int)>();
 
             foreach (var counterEvent in events)
             {
@@ -86,20 +98,25 @@ namespace EventStoreToy.ViewModel
 
         private void ApplyEvent(long sequence, CounterEvent counterEvent)
         {
-            switch (counterEvent.EventType)
+            switch (counterEvent.EventCase)
             {
-                case CounterEvents.CounterAdded:
-                    Counters.Add(new CounterViewModel(counterEvent.CounterId, 0));
+                case EventOneofCase.Added:
+                    Counters.Add(new CounterViewModel(counterEvent.Id.ToGuid(), 0, counterEvent.Added.Name));
                     break;
-                case CounterEvents.CounterRemoved:
+                case EventOneofCase.Removed:
                     RemoveCounter(counterEvent);
                     break;
-                case CounterEvents.CounterIncremented:
+                case EventOneofCase.Incremented:
                     UpdateCounter(counterEvent, 1);
                     break;
-                case CounterEvents.CounterDecremented:
+                case EventOneofCase.Decremented:
                     UpdateCounter(counterEvent, -1);
                     break;
+                case EventOneofCase.NameChanged:
+                    ChangeCounterName(counterEvent);
+                    break;
+                default:
+                    throw new InvalidOperationException("Oh noes!");
             }
 
             lastSequenceSeen = sequence;
@@ -107,16 +124,28 @@ namespace EventStoreToy.ViewModel
 
         private void UpdateCounter(CounterEvent counterEvent, int value)
         {
-            var counter = Counters.Where(x => x.Id == counterEvent.CounterId).FirstOrDefault();
+            var counterId = counterEvent.Id.ToGuid();
+            var counter = Counters.Where(x => x.Id == counterId).FirstOrDefault();
             if (counter != null)
             {
                 counter.Count += value;
             }
         }
 
+        private void ChangeCounterName(CounterEvent counterEvent)
+        {
+            var counterId = counterEvent.Id.ToGuid();
+            var counter = Counters.Where(x => x.Id == counterId).FirstOrDefault();
+            if (counter != null)
+            {
+                counter.Name = counterEvent.NameChanged.Name;
+            }
+        }
+
         private void RemoveCounter(CounterEvent counterEvent)
         {
-            var counter = Counters.Where(x => x.Id == counterEvent.CounterId).FirstOrDefault();
+            var counterId = counterEvent.Id.ToGuid();
+            var counter = Counters.Where(x => x.Id == counterId).FirstOrDefault();
             if (counter != null)
             {
                 Counters.Remove(counter);
@@ -127,7 +156,8 @@ namespace EventStoreToy.ViewModel
 
         private async void OnAddCounter()
         {
-            var id = await counterApi.AddCounter().ConfigureAwait(true);
+            var name = string.IsNullOrWhiteSpace(NewCounterName) ? Path.GetRandomFileName() : NewCounterName;
+            var id = await counterApi.AddCounter(name).ConfigureAwait(true);
         }
     }
 }

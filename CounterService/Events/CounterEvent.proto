@@ -1,0 +1,20 @@
+﻿syntax = "proto3";
+
+import "CounterAdded.proto";
+import "CounterDecremented.proto";
+import "CounterIncremented.proto";
+import "CounterNameChanged.proto";
+import "CounterRemoved.proto";
+
+message CounterEvent {
+	bytes id = 1;
+	uint64 version = 2;
+
+	oneof event {
+		CounterAdded added = 3;
+		CounterDecremented decremented = 4;
+		CounterIncremented incremented = 5;
+		CounterNameChanged nameChanged = 6;
+		CounterRemoved removed = 7;
+	}
+}

@@ -1,0 +1,5 @@
+﻿syntax = "proto3";
+
+message CounterNameChanged {
+	string name = 1;
+}

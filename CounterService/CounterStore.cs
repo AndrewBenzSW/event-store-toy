@@ -1,4 +1,6 @@
 ﻿using CounterService.Exceptions;
+using CounterService.Extensions;
+using Google.Protobuf;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
@@ -8,6 +10,12 @@ namespace CounterService
 {
     public static class CounterStore
     {
+        private static readonly Dictionary<string, Func<byte[], IMessage>> deserializers = new Dictionary<string, Func<byte[], IMessage>>
+        {
+            { CounterEvents.CounterAdded, CounterAdded.Parser.ParseFrom },
+            { CounterEvents.CounterNameChanged, CounterNameChanged.Parser.ParseFrom }
+        };
+
         public static event EventHandler EventAdded;
 
         /// <summary>
@@ -32,9 +40,13 @@ namespace CounterService
                         {
                             var version = reader.GetInt64(0);
                             var type = reader.GetString(1);
-                            var payload = reader.GetString(2);
+                            var payloadBytes = (byte[])reader["Payload"];
 
-                            var counterEvent = new CounterEvent(counterId, type, version, payload);
+                            var counterEvent = new CounterEvent
+                            {
+                                Id = counterId.ToByteString(),
+                                Version = (ulong)version,
+                            }.SetEventPayload(type, payloadBytes);
 
                             counter = CounterReducer.Apply(counter, counterEvent);
                         }
@@ -55,10 +67,10 @@ namespace CounterService
                 using (var comm = conn.CreateCommand())
                 {
                     comm.CommandText = "INSERT INTO EventLog (EntityType, EntityId, Version, EventType, Payload) VALUES ('Counter', @EntityId, @Version, @EventType, @Payload)";
-                    comm.Parameters.AddWithValue("@EntityID", counterEvent.CounterId);
-                    comm.Parameters.AddWithValue("@Version", counterEvent.Version);
-                    comm.Parameters.AddWithValue("@EventType", counterEvent.EventType);
-                    comm.Parameters.AddWithValue("@Payload", counterEvent.Payload ?? "");
+                    comm.Parameters.AddWithValue("@EntityID", counterEvent.Id.ToGuid());
+                    comm.Parameters.AddWithValue("@Version", Convert.ToInt64(counterEvent.Version));
+                    comm.Parameters.AddWithValue("@EventType", counterEvent.EventCase.ToString());
+                    comm.Parameters.AddWithValue("@Payload", counterEvent.GetEventPayload().ToByteArray());
 
                     await conn.OpenAsync().ConfigureAwait(false);
 
@@ -99,10 +111,14 @@ namespace CounterService
                             var counterId = reader.GetGuid(0);
                             var version = reader.GetInt64(1);
                             var type = reader.GetString(2);
-                            var payload = reader.GetString(3);
+                            var payloadBytes = (byte[])reader["Payload"];
                             var sequence = reader.GetInt64(4);
 
-                            events.Add(sequence, new CounterEvent(counterId, type, version, payload));
+                            events.Add(sequence, new CounterEvent
+                            {
+                                Id = counterId.ToByteString(),
+                                Version = (ulong)version,
+                            }.SetEventPayload(type, payloadBytes));
                         }
 
                         return events;

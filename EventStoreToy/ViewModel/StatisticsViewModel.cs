@@ -1,4 +1,5 @@
 ﻿using CounterService;
+using CounterService.Extensions;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.CommandWpf;
 using GalaSoft.MvvmLight.Threading;
@@ -6,6 +7,7 @@ using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using static CounterEvent;
 
 namespace EventStoreToy.ViewModel
 {
@@ -78,18 +80,18 @@ namespace EventStoreToy.ViewModel
 
                     using (var transaction = conn.BeginTransaction())
                     {
-                        switch (counterEvent.Value.EventType)
+                        switch (counterEvent.Value.EventCase)
                         {
-                            case CounterEvents.CounterAdded:
+                            case EventOneofCase.Added:
                                 await CreateCounter(conn, transaction, counterEvent.Value).ConfigureAwait(false);
                                 break;
-                            case CounterEvents.CounterRemoved:
+                            case EventOneofCase.Removed:
                                 await RemoveCounter(conn, transaction, counterEvent.Value).ConfigureAwait(false);
                                 break;
-                            case CounterEvents.CounterIncremented:
+                            case EventOneofCase.Incremented:
                                 await UpdateCounter(conn, transaction, counterEvent.Value, 1).ConfigureAwait(false);
                                 break;
-                            case CounterEvents.CounterDecremented:
+                            case EventOneofCase.Decremented:
                                 await UpdateCounter(conn, transaction, counterEvent.Value, -1).ConfigureAwait(false);
                                 break;
                         }
@@ -182,7 +184,12 @@ namespace EventStoreToy.ViewModel
                         {
                             var sumValue = reader.GetInt32(0);
                             var averageValue = reader.GetDouble(1);
-                            var standardDeviationValue = reader.GetDouble(2);
+                            var standardDeviationValue = 0.0;
+
+                            if (!reader.IsDBNull(2))
+                            {
+                                standardDeviationValue = reader.GetDouble(2);
+                            }
 
                             return new Stats(sumValue, averageValue, standardDeviationValue);
                         }
@@ -211,7 +218,7 @@ namespace EventStoreToy.ViewModel
             {
                 comm.Transaction = transaction;
                 comm.CommandText = "UPDATE CounterStatistics SET Count = Count + @Value WHERE CounterId = @CounterId";
-                comm.Parameters.AddWithValue("@CounterId", counterEvent.CounterId);
+                comm.Parameters.AddWithValue("@CounterId", counterEvent.Id.ToGuid());
                 comm.Parameters.AddWithValue("@Value", value);
 
                 await comm.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -224,7 +231,7 @@ namespace EventStoreToy.ViewModel
             {
                 comm.Transaction = transaction;
                 comm.CommandText = "DELETE FROM CounterStatistics WHERE CounterId = @CounterId";
-                comm.Parameters.AddWithValue("@CounterId", counterEvent.CounterId);
+                comm.Parameters.AddWithValue("@CounterId", counterEvent.Id.ToGuid());
 
                 await comm.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
@@ -236,7 +243,7 @@ namespace EventStoreToy.ViewModel
             {
                 comm.Transaction = transaction;
                 comm.CommandText = "INSERT INTO CounterStatistics (CounterId, Count) VALUES (@CounterId, 0)";
-                comm.Parameters.AddWithValue("@CounterId", counterEvent.CounterId);
+                comm.Parameters.AddWithValue("@CounterId", counterEvent.Id.ToGuid());
 
                 await comm.ExecuteNonQueryAsync().ConfigureAwait(false);
             }

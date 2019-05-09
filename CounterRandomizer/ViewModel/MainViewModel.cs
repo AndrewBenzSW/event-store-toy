@@ -1,4 +1,5 @@
 using CounterService;
+using CounterService.Extensions;
 using GalaSoft.MvvmLight;
 using GalaSoft.MvvmLight.Threading;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
+using static CounterEvent;
 
 namespace CounterRandomizer.ViewModel
 {
@@ -36,10 +38,10 @@ namespace CounterRandomizer.ViewModel
                 // Code runs in Blend --> create design time data.
                 Counters = new ObservableCollection<AutomatedCounter>(new List<AutomatedCounter>
                 {
-                    new AutomatedCounter(Guid.NewGuid()),
-                    new AutomatedCounter(Guid.NewGuid()),
-                    new AutomatedCounter(Guid.NewGuid()),
-                    new AutomatedCounter(Guid.NewGuid()),
+                    new AutomatedCounter(Guid.NewGuid(), "Foo"),
+                    new AutomatedCounter(Guid.NewGuid(), "Bar"),
+                    new AutomatedCounter(Guid.NewGuid(), null),
+                    new AutomatedCounter(Guid.NewGuid(), "Quux"),
                 });
             }
             else
@@ -69,17 +71,32 @@ namespace CounterRandomizer.ViewModel
 
             foreach (var counterEvent in events)
             {
-                switch (counterEvent.Value.EventType)
+                switch (counterEvent.Value.EventCase)
                 {
-                    case CounterEvents.CounterAdded:
-                        await DispatcherHelper.RunAsync(() => Counters.Add(new AutomatedCounter(counterEvent.Value.CounterId)));
+                    case EventOneofCase.Added:
+                        await DispatcherHelper.RunAsync(() => Counters.Add(new AutomatedCounter(counterEvent.Value.Id.ToGuid(), counterEvent.Value.Added.Name)));
                         break;
-                    case CounterEvents.CounterRemoved:
-                        var counterToRemove = Counters.SingleOrDefault(x => x.Id == counterEvent.Value.CounterId);
-                        if (counterToRemove != null)
+                    case EventOneofCase.Removed:
                         {
-                            await DispatcherHelper.RunAsync(() => Counters.Remove(counterToRemove));
+                            var counterId = counterEvent.Value.Id.ToGuid();
+                            var counterToRemove = Counters.SingleOrDefault(x => x.Id == counterId);
+                            if (counterToRemove != null)
+                            {
+                                await DispatcherHelper.RunAsync(() => Counters.Remove(counterToRemove));
+                            }
                         }
+
+                        break;
+                    case EventOneofCase.NameChanged:
+                        {
+                            var counterId = counterEvent.Value.Id.ToGuid();
+                            var counterToUpdate = Counters.SingleOrDefault(x => x.Id == counterId);
+                            if (counterToUpdate != null)
+                            {
+                                await DispatcherHelper.RunAsync(() => counterToUpdate.Name = counterEvent.Value.NameChanged.Name);
+                            }
+                        }
+
                         break;
                 }
 

@@ -10,6 +10,13 @@
     Height="450"
     DataContext="{Binding Main, Source={StaticResource Locator}}"
     mc:Ignorable="d">
+    <Window.Resources>
+        <local:BoolToVisibilityConverter x:Key="ShowIfTrue" />
+        <local:BoolToVisibilityConverter
+            x:Key="HideIfTrue"
+            FalseValue="Visible"
+            TrueValue="Collapsed" />
+    </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -26,6 +33,8 @@
                 <DataTemplate>
                     <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
@@ -52,11 +61,31 @@
                             Text="{Binding Count}" />
                         <TextBlock
                             Grid.Column="3"
-                            MinWidth="250"
-                            Text="{Binding Id}" />
-                        <Button
+                            MinWidth="150"
+                            Text="{Binding Name}" />
+                        <TextBlock
                             Grid.Column="4"
+                            MinWidth="250"
+                            Foreground="Gray"
+                            Text="{Binding Id}" />
+                        <StackPanel Grid.Column="5" Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding NameChanging, Converter={StaticResource ShowIfTrue}}">
+                                <TextBox MinWidth="100" Text="{Binding TemporaryName}" />
+                                <Button Command="{Binding SaveNameChange}">Save</Button>
+                                <Button Command="{Binding CancelNameChange}">Cancel</Button>
+                            </StackPanel>
+                            <Button
+                                Padding="4,0"
+                                Command="{Binding ChangeName}"
+                                Visibility="{Binding NameChanging, Converter={StaticResource HideIfTrue}}">
+                                ChangeName
+                            </Button>
+                        </StackPanel>
+
+                        <Button
+                            Grid.Column="6"
                             Padding="4,0"
+                            Margin="10,0,0,0"
                             Command="{Binding Remove}">
                             Remove
                         </Button>

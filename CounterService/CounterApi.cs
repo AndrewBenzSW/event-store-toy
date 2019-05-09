@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Google.Protobuf;
+using System;
 using System.Threading.Tasks;
 
 namespace CounterService
@@ -11,11 +12,18 @@ namespace CounterService
         /// <summary>
         /// Add a counter
         /// </summary>
-        public async Task<Guid> AddCounter()
+        public async Task<Guid> AddCounter(string name)
         {
             var id = Guid.NewGuid();
 
-            await CounterStore.StoreEvent(new CounterEvent(id, CounterEvents.CounterAdded, 0, null)).ConfigureAwait(false);
+            //var payload = new CounterAdded { Name = "" };
+            var counterEvent = new CounterEvent
+            {
+                Id = ByteString.CopyFrom(id.ToByteArray()),
+                Version = 0,
+                Added = new CounterAdded { Name = "" }
+            };
+            await CounterStore.StoreEvent(counterEvent).ConfigureAwait(false);
 
             return id;
         }
@@ -51,6 +59,16 @@ namespace CounterService
             var counter = await CounterStore.GetById(id).ConfigureAwait(false);
 
             await CounterStore.StoreEvent(counter.Decrement()).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Change the name of a counter
+        /// </summary>
+        public async Task ChangeName(Guid id, string newName, string originalName)
+        {
+            var counter = await CounterStore.GetById(id).ConfigureAwait(false);
+
+            await CounterStore.StoreEvent(counter.ChangeName(newName, originalName)).ConfigureAwait(false);
         }
     }
 }
