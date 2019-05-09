@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using static CounterEvent;
@@ -84,17 +83,90 @@ namespace EventStoreToy.ViewModel
 
         private async Task UpdateView()
         {
+            var maxSequence = lastSequenceSeen;
             var events = await CounterStore.AllEventsAfter(lastSequenceSeen).ConfigureAwait(true);
-
-            /// var counterState = new Dictionary<Guid, (string, int)>();
+            var counterState = Counters.ToDictionary(x => x.Id, x => new CounterState(x.Name, x.Count));
 
             foreach (var counterEvent in events)
             {
-                await DispatcherHelper.RunAsync(() => ApplyEvent(counterEvent.Key, counterEvent.Value));
+                CounterState counterDetails = null;
+                var counterId = counterEvent.Value.Id.ToGuid();
+
+                if (!counterState.TryGetValue(counterEvent.Value.Id.ToGuid(), out counterDetails))
+                {
+                    counterDetails = null;
+                }
+
+                counterState[counterId] = ApplyEvent(counterDetails, counterEvent.Value);
+                maxSequence = counterEvent.Key;
             }
 
-            timer.Change(5000, Timeout.Infinite);
+            await DispatcherHelper.RunAsync(() =>
+            {
+                var newCounters = counterState
+                    .Where(x => x.Value != null);
+
+                foreach (var counter in newCounters)
+                {
+                    var viewModel = Counters.FirstOrDefault(x => x.Id == counter.Key);
+                    if (viewModel == null)
+                    {
+                        Counters.Add(new CounterViewModel(counter.Key, counter.Value.Count, counter.Value.Name));
+                    }
+                    else
+                    {
+                        viewModel.Name = counter.Value.Name;
+                        viewModel.Count = counter.Value.Count;
+                    }
+                }
+
+                foreach (var counter in counterState.Where(x => x.Value == null))
+                {
+                    var viewModel = Counters.FirstOrDefault(x => x.Id == counter.Key);
+                    if (viewModel != null)
+                    {
+                        Counters.Remove(viewModel);
+                    }
+                }
+            });
+
+            lastSequenceSeen = maxSequence;
         }
+
+
+        private class CounterState
+        {
+            public CounterState(string name, int count)
+            {
+                Name = name;
+                Count = count;
+            }
+
+            public string Name { get; }
+            public int Count { get; }
+        }
+
+
+        private CounterState ApplyEvent(CounterState state, CounterEvent counterEvent)
+        {
+            switch (counterEvent.EventCase)
+            {
+                case EventOneofCase.Added:
+                    return new CounterState(counterEvent.Added.Name, 0);
+                case EventOneofCase.Removed:
+                    return null;
+                case EventOneofCase.Incremented:
+                    return new CounterState(state.Name, state.Count + 1);
+                case EventOneofCase.Decremented:
+                    return new CounterState(state.Name, state.Count - 1);
+                case EventOneofCase.NameChanged:
+                    return new CounterState(counterEvent.NameChanged.Name, state.Count);
+                default:
+                    throw new InvalidOperationException("Oh noes!");
+            }
+        }
+
+
 
         private void ApplyEvent(long sequence, CounterEvent counterEvent)
         {
@@ -151,8 +223,6 @@ namespace EventStoreToy.ViewModel
                 Counters.Remove(counter);
             }
         }
-
-        private Timer timer;
 
         private async void OnAddCounter()
         {
